@@ -3,10 +3,13 @@ package ru.kachkovsky.restaurants.data.bean;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Result {
+public class Result implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     @SerializedName("geometry")
     @Expose
@@ -49,234 +52,182 @@ public class Result {
     private Integer priceLevel;
 
     /**
-     *
-     * @return
-     * The geometry
+     * @return The geometry
      */
     public Geometry getGeometry() {
         return geometry;
     }
 
     /**
-     *
-     * @param geometry
-     * The geometry
+     * @param geometry The geometry
      */
     public void setGeometry(Geometry geometry) {
         this.geometry = geometry;
     }
 
     /**
-     *
-     * @return
-     * The icon
+     * @return The icon
      */
     public String getIcon() {
         return icon;
     }
 
     /**
-     *
-     * @param icon
-     * The icon
+     * @param icon The icon
      */
     public void setIcon(String icon) {
         this.icon = icon;
     }
 
     /**
-     *
-     * @return
-     * The id
+     * @return The id
      */
     public String getId() {
         return id;
     }
 
     /**
-     *
-     * @param id
-     * The id
+     * @param id The id
      */
     public void setId(String id) {
         this.id = id;
     }
 
     /**
-     *
-     * @return
-     * The name
+     * @return The name
      */
     public String getName() {
         return name;
     }
 
     /**
-     *
-     * @param name
-     * The name
+     * @param name The name
      */
     public void setName(String name) {
         this.name = name;
     }
 
     /**
-     *
-     * @return
-     * The openingHours
+     * @return The openingHours
      */
     public OpeningHours getOpeningHours() {
         return openingHours;
     }
 
     /**
-     *
-     * @param openingHours
-     * The opening_hours
+     * @param openingHours The opening_hours
      */
     public void setOpeningHours(OpeningHours openingHours) {
         this.openingHours = openingHours;
     }
 
     /**
-     *
-     * @return
-     * The photos
+     * @return The photos
      */
     public List<Photo> getPhotos() {
         return photos;
     }
 
     /**
-     *
-     * @param photos
-     * The photos
+     * @param photos The photos
      */
     public void setPhotos(List<Photo> photos) {
         this.photos = photos;
     }
 
     /**
-     *
-     * @return
-     * The placeId
+     * @return The placeId
      */
     public String getPlaceId() {
         return placeId;
     }
 
     /**
-     *
-     * @param placeId
-     * The place_id
+     * @param placeId The place_id
      */
     public void setPlaceId(String placeId) {
         this.placeId = placeId;
     }
 
     /**
-     *
-     * @return
-     * The rating
+     * @return The rating
      */
     public Double getRating() {
         return rating;
     }
 
     /**
-     *
-     * @param rating
-     * The rating
+     * @param rating The rating
      */
     public void setRating(Double rating) {
         this.rating = rating;
     }
 
     /**
-     *
-     * @return
-     * The reference
+     * @return The reference
      */
     public String getReference() {
         return reference;
     }
 
     /**
-     *
-     * @param reference
-     * The reference
+     * @param reference The reference
      */
     public void setReference(String reference) {
         this.reference = reference;
     }
 
     /**
-     *
-     * @return
-     * The scope
+     * @return The scope
      */
     public String getScope() {
         return scope;
     }
 
     /**
-     *
-     * @param scope
-     * The scope
+     * @param scope The scope
      */
     public void setScope(String scope) {
         this.scope = scope;
     }
 
     /**
-     *
-     * @return
-     * The types
+     * @return The types
      */
     public List<String> getTypes() {
         return types;
     }
 
     /**
-     *
-     * @param types
-     * The types
+     * @param types The types
      */
     public void setTypes(List<String> types) {
         this.types = types;
     }
 
     /**
-     *
-     * @return
-     * The vicinity
+     * @return The vicinity
      */
     public String getVicinity() {
         return vicinity;
     }
 
     /**
-     *
-     * @param vicinity
-     * The vicinity
+     * @param vicinity The vicinity
      */
     public void setVicinity(String vicinity) {
         this.vicinity = vicinity;
     }
 
     /**
-     *
-     * @return
-     * The priceLevel
+     * @return The priceLevel
      */
     public Integer getPriceLevel() {
         return priceLevel;
     }
 
     /**
-     *
-     * @param priceLevel
-     * The price_level
+     * @param priceLevel The price_level
      */
     public void setPriceLevel(Integer priceLevel) {
         this.priceLevel = priceLevel;

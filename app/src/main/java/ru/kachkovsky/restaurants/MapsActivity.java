@@ -1,6 +1,7 @@
 package ru.kachkovsky.restaurants;
 
 import android.Manifest;
+import android.content.Intent;
 import android.content.IntentSender;
 import android.content.pm.PackageManager;
 import android.location.Location;
@@ -28,6 +29,7 @@ import com.google.android.gms.location.LocationSettingsStatusCodes;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.GoogleMap.OnCameraIdleListener;
+import com.google.android.gms.maps.GoogleMap.OnMarkerClickListener;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
@@ -35,12 +37,18 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
+import java.io.Serializable;
+import java.util.List;
+
 import retrofit.Callback;
 import retrofit.Response;
 import retrofit.Retrofit;
 import ru.kachkovsky.restaurants.data.RestaurantsRequest;
 import ru.kachkovsky.restaurants.data.bean.Example;
+import ru.kachkovsky.restaurants.data.bean.Result;
 import ru.kachkovsky.restaurants.helpers.LocationPermissionHelper;
+
+import static ru.kachkovsky.restaurants.RestaurantDetailsActivity.ACTIVITY_INTENT_BUNDLE_KEY;
 
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, ConnectionCallbacks, OnConnectionFailedListener, LocationListener {
     private static final String TAG = MapsActivity.class.getSimpleName();
@@ -58,7 +66,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private Double longitude;
     private Double prevLatitude = null;
     private Double prevLongitude = null;
-    private boolean wasMoved = false;
 
     private float[] distanceResult = {0.f};
 
@@ -121,7 +128,21 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 }
             }
         });
-
+        map.setOnMarkerClickListener(new OnMarkerClickListener() {
+            @Override
+            public boolean onMarkerClick(Marker marker) {
+                Object tag = marker.getTag();
+                if (tag != null) {
+                    Intent intent = new Intent(MapsActivity.this, RestaurantDetailsActivity.class);
+                    Bundle bundle = new Bundle();
+                    bundle.putSerializable(ACTIVITY_INTENT_BUNDLE_KEY, (Serializable) tag);
+                    intent.putExtras(bundle);
+                    startActivity(intent);
+                    return true;
+                }
+                return false;
+            }
+        });
         Log.d(TAG, "onMapReady finished");
         //only on locationCahnged
         //showRestaurants
@@ -136,16 +157,18 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         RestaurantsRequest.request(latitude, longitude, PROXIMITY_RADIUS).enqueue(new Callback<Example>() {
             @Override
             public void onResponse(Response<Example> response, Retrofit retrofit) {
+
                 try {
+                    List<Result> resultsList = response.body().getResults();
                     map.clear();
                     recreateCurrentMarker();
-                    // This loop will go through all the results and add marker on each location.
-                    Log.d(TAG, "results count" + response.body().getResults().size());
-                    for (int i = 0; i < response.body().getResults().size(); i++) {
-                        Double lat = response.body().getResults().get(i).getGeometry().getLocation().getLat();
-                        Double lng = response.body().getResults().get(i).getGeometry().getLocation().getLng();
-                        String placeName = response.body().getResults().get(i).getName();
-                        String vicinity = response.body().getResults().get(i).getVicinity();
+
+                    Log.d(TAG, "results count" + resultsList.size());
+                    for (int i = 0; i < resultsList.size(); i++) {
+                        Double lat = resultsList.get(i).getGeometry().getLocation().getLat();
+                        Double lng = resultsList.get(i).getGeometry().getLocation().getLng();
+                        String placeName = resultsList.get(i).getName();
+                        String vicinity = resultsList.get(i).getVicinity();
                         MarkerOptions markerOptions = new MarkerOptions();
                         LatLng latLng = new LatLng(lat, lng);
                         // Position of Marker on Map
@@ -154,11 +177,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         markerOptions.title(placeName + " : " + vicinity);
                         // Adding Marker to the Camera.
                         Marker m = map.addMarker(markerOptions);
+                        m.setTag(resultsList.get(i));
                         // Adding colour to the marker
                         markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED));
-                        // move map camera
-                        //map.moveCamera(CameraUpdateFactory.newLatLng(latLng));
-                        //map.animateCamera(CameraUpdateFactory.zoomTo(11));
+
                     }
                 } catch (Exception e) {
                     Log.d("onResponse", "There is an error");

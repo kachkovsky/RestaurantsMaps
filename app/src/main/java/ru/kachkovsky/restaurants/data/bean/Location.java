@@ -3,7 +3,10 @@ package ru.kachkovsky.restaurants.data.bean;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
-public class Location {
+import java.io.Serializable;
+
+public class Location implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     @SerializedName("lat")
     @Expose
