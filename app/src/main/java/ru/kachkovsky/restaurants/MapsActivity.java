@@ -19,6 +19,8 @@ import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.GoogleMap.OnCameraIdleListener;
+import com.google.android.gms.maps.GoogleMap.OnCameraMoveStartedListener;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
@@ -38,15 +40,20 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     public static final int PERMISSIONS_REQUEST_LOCATION_REQUEST_CODE = 11;
 
-    private static final int PROXIMITY_RADIUS = 100000;
+    private static final int PROXIMITY_RADIUS = 1000;
 
     private GoogleMap mMap;
     private GoogleApiClient mGoogleApiClient;
     private LocationRequest mLocationRequest;
     private Location mLastLocation;
     private Marker mCurrLocationMarker;
-    private double latitude;
-    private double longitude;
+    private Double latitude;
+    private Double longitude;
+    private Double prevLatitude = null;
+    private Double prevLongitude = null;
+    private boolean wasMoved = false;
+
+    private float[] distanceResult = {0.f};
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -98,19 +105,33 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             mMap.setMyLocationEnabled(true);
         }
 
+        mMap.setOnCameraIdleListener(new OnCameraIdleListener() {
+            @Override
+            public void onCameraIdle() {
+                if (mLastLocation != null && lastLocationChanged) {
+                    lastLocationChanged = false;
+                    showRestaurants();
+                }
+            }
+        });
+
         Log.d(TAG, "onMapReady finished");
         //only on locationCahnged
         //showRestaurants
     }
 
-    private void showRestaurants() {
+    private boolean lastLocationChanged = false;
 
+    private void showRestaurants() {
+        if (latitude == null || longitude == null) {
+            return;
+        }
         RestaurantsRequest.request(latitude, longitude, PROXIMITY_RADIUS).enqueue(new Callback<Example>() {
             @Override
             public void onResponse(Response<Example> response, Retrofit retrofit) {
-
                 try {
                     mMap.clear();
+                    recreateCurrentMarker();
                     // This loop will go through all the results and add marker on each location.
                     Log.d(TAG, "results count" + response.body().getResults().size());
                     for (int i = 0; i < response.body().getResults().size(); i++) {
@@ -129,8 +150,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         // Adding colour to the marker
                         markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED));
                         // move map camera
-                        mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
-                        mMap.animateCamera(CameraUpdateFactory.zoomTo(11));
+                        //mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
+                        //mMap.animateCamera(CameraUpdateFactory.zoomTo(11));
                     }
                 } catch (Exception e) {
                     Log.d("onResponse", "There is an error");
@@ -191,7 +212,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     @Override
     public void onConnected(Bundle bundle) {
-        Log.d(TAG,"onConnected");
+        Log.d(TAG, "onConnected");
         mLocationRequest = new LocationRequest();
         mLocationRequest.setInterval(1000);
         mLocationRequest.setFastestInterval(1000);
@@ -205,46 +226,60 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     @Override
     public void onConnectionSuspended(int i) {
-        Log.d(TAG,"onConnectionSuspended");
+        Log.d(TAG, "onConnectionSuspended");
     }
 
     @Override
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
-        Log.d(TAG,"onConnectionFailed");
+        Log.d(TAG, "onConnectionFailed");
     }
 
-    private boolean shown = false;
+    private void recreateCurrentMarker() {
+        LatLng latLng = new LatLng(latitude, longitude);
+        MarkerOptions markerOptions = new MarkerOptions();
+        markerOptions.position(latLng);
+        markerOptions.title("Current Position");
+        // Adding colour to the marker
+        markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_MAGENTA));
+
+        // Adding Marker to the Map
+        mCurrLocationMarker = mMap.addMarker(markerOptions);
+    }
 
     @Override
     public void onLocationChanged(Location location) {
         Log.d("onLocationChanged", "entered");
 
         mLastLocation = location;
+        lastLocationChanged = true;
         if (mCurrLocationMarker != null) {
             mCurrLocationMarker.remove();
         }
         //Place current location marker
+        if (prevLatitude == null) {
+            prevLatitude = latitude;
+            prevLongitude = longitude;
+        }
         latitude = location.getLatitude();
         longitude = location.getLongitude();
-        LatLng latLng = new LatLng(location.getLatitude(), location.getLongitude());
-        MarkerOptions markerOptions = new MarkerOptions();
-        markerOptions.position(latLng);
-        markerOptions.title("Current Position");
 
-        // Adding colour to the marker
-        markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_MAGENTA));
+        recreateCurrentMarker();
 
-        // Adding Marker to the Map
-        mCurrLocationMarker = mMap.addMarker(markerOptions);
-        mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
-
-        Log.d(TAG, "onLocationChanged" + String.format("latitude:%.3f longitude:%.3f", latitude, longitude));
-        if (!shown) {
-            //move map camera
-
-            mMap.animateCamera(CameraUpdateFactory.zoomTo(11));
+        if (prevLatitude != null && prevLongitude != null) {
+            android.location.Location.distanceBetween(prevLatitude, prevLongitude, latitude, longitude, distanceResult);
+            //update map for distance 100 meters
+            if (distanceResult[0] > 100) {
+                prevLatitude = latitude;
+                prevLongitude = longitude;
+                mMap.moveCamera(CameraUpdateFactory.newLatLng(new LatLng(latitude, longitude)));
+                showRestaurants();
+            }
+        } else {
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(new LatLng(latitude, longitude)));
+            mMap.animateCamera(CameraUpdateFactory.zoomTo(14));
             showRestaurants();
-            shown = true;
         }
+        Log.d(TAG, "onLocationChanged" + String.format("latitude:%.3f longitude:%.3f", latitude, longitude));
+
     }
 }
