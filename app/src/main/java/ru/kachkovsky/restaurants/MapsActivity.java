@@ -1,6 +1,7 @@
 package ru.kachkovsky.restaurants;
 
 import android.Manifest;
+import android.content.IntentSender;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Build;
@@ -14,13 +15,19 @@ import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.GoogleApiClient.ConnectionCallbacks;
 import com.google.android.gms.common.api.GoogleApiClient.OnConnectionFailedListener;
+import com.google.android.gms.common.api.PendingResult;
+import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.LocationSettingsRequest;
+import com.google.android.gms.location.LocationSettingsResult;
+import com.google.android.gms.location.LocationSettingsStates;
+import com.google.android.gms.location.LocationSettingsStatusCodes;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.GoogleMap.OnCameraIdleListener;
-import com.google.android.gms.maps.GoogleMap.OnCameraMoveStartedListener;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
@@ -42,11 +49,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private static final int PROXIMITY_RADIUS = 1000;
 
-    private GoogleMap mMap;
-    private GoogleApiClient mGoogleApiClient;
-    private LocationRequest mLocationRequest;
-    private Location mLastLocation;
-    private Marker mCurrLocationMarker;
+    private GoogleMap map;
+    private GoogleApiClient googleApiClient;
+    private LocationRequest locationRequest;
+    private Location lastLocation;
+    private Marker currLocationMarker;
     private Double latitude;
     private Double longitude;
     private Double prevLatitude = null;
@@ -80,17 +87,17 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
      */
 //    @Override
 //    public void onMapReady(GoogleMap googleMap) {
-//        mMap = googleMap;
+//        map = googleMap;
 //
 //        // Add a marker in Sydney and move the camera
 //        LatLng sydney = new LatLng(-34, 151);
-//        mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
-//        mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
+//        map.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
+//        map.moveCamera(CameraUpdateFactory.newLatLng(sydney));
 //    }
     @Override
     public void onMapReady(GoogleMap googleMap) {
-        mMap = googleMap;
-        mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
+        map = googleMap;
+        map.setMapType(GoogleMap.MAP_TYPE_NORMAL);
 
         //Initialize Google Play Services
         if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -98,17 +105,17 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     Manifest.permission.ACCESS_FINE_LOCATION)
                     == PackageManager.PERMISSION_GRANTED) {
                 buildGoogleApiClient();
-                mMap.setMyLocationEnabled(true);
+                map.setMyLocationEnabled(true);
             }
         } else {
             buildGoogleApiClient();
-            mMap.setMyLocationEnabled(true);
+            map.setMyLocationEnabled(true);
         }
 
-        mMap.setOnCameraIdleListener(new OnCameraIdleListener() {
+        map.setOnCameraIdleListener(new OnCameraIdleListener() {
             @Override
             public void onCameraIdle() {
-                if (mLastLocation != null && lastLocationChanged) {
+                if (lastLocation != null && lastLocationChanged) {
                     lastLocationChanged = false;
                     showRestaurants();
                 }
@@ -130,7 +137,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             @Override
             public void onResponse(Response<Example> response, Retrofit retrofit) {
                 try {
-                    mMap.clear();
+                    map.clear();
                     recreateCurrentMarker();
                     // This loop will go through all the results and add marker on each location.
                     Log.d(TAG, "results count" + response.body().getResults().size());
@@ -146,12 +153,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         // Adding Title to the Marker
                         markerOptions.title(placeName + " : " + vicinity);
                         // Adding Marker to the Camera.
-                        Marker m = mMap.addMarker(markerOptions);
+                        Marker m = map.addMarker(markerOptions);
                         // Adding colour to the marker
                         markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED));
                         // move map camera
-                        //mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
-                        //mMap.animateCamera(CameraUpdateFactory.zoomTo(11));
+                        //map.moveCamera(CameraUpdateFactory.newLatLng(latLng));
+                        //map.animateCamera(CameraUpdateFactory.zoomTo(11));
                     }
                 } catch (Exception e) {
                     Log.d("onResponse", "There is an error");
@@ -181,10 +188,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                             Manifest.permission.ACCESS_FINE_LOCATION)
                             == PackageManager.PERMISSION_GRANTED) {
 
-                        if (mGoogleApiClient == null) {
+                        if (googleApiClient == null) {
                             buildGoogleApiClient();
                         }
-                        mMap.setMyLocationEnabled(true);
+                        map.setMyLocationEnabled(true);
                     }
 
                 } else {
@@ -202,26 +209,65 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     protected synchronized void buildGoogleApiClient() {
-        mGoogleApiClient = new GoogleApiClient.Builder(this)
+        googleApiClient = new GoogleApiClient.Builder(this)
                 .addConnectionCallbacks(this)
                 .addOnConnectionFailedListener(this)
                 .addApi(com.google.android.gms.location.LocationServices.API)
                 .build();
-        mGoogleApiClient.connect();
+        googleApiClient.connect();
     }
 
     @Override
     public void onConnected(Bundle bundle) {
         Log.d(TAG, "onConnected");
-        mLocationRequest = new LocationRequest();
-        mLocationRequest.setInterval(1000);
-        mLocationRequest.setFastestInterval(1000);
-        mLocationRequest.setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
+        locationRequest = new LocationRequest();
+        locationRequest.setInterval(1000);
+        locationRequest.setFastestInterval(1000);
+        locationRequest.setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
         if (ContextCompat.checkSelfPermission(this,
                 Manifest.permission.ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED) {
-            LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
+            LocationServices.FusedLocationApi.requestLocationUpdates(googleApiClient, locationRequest, this);
         }
+
+        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder()
+                .addLocationRequest(locationRequest);
+
+        //**************************
+        builder.setAlwaysShow(true); //this is the key ingredient
+        //**************************
+
+        PendingResult<LocationSettingsResult> result =
+                LocationServices.SettingsApi.checkLocationSettings(googleApiClient, builder.build());
+        result.setResultCallback(new ResultCallback<LocationSettingsResult>() {
+            @Override
+            public void onResult(LocationSettingsResult result) {
+                final Status status = result.getStatus();
+                final LocationSettingsStates state = result.getLocationSettingsStates();
+                switch (status.getStatusCode()) {
+                    case LocationSettingsStatusCodes.SUCCESS:
+                        // All location settings are satisfied. The client can initialize location
+                        // requests here.
+                        break;
+                    case LocationSettingsStatusCodes.RESOLUTION_REQUIRED:
+                        // Location settings are not satisfied. But could be fixed by showing the user
+                        // a dialog.
+                        try {
+                            // Show the dialog by calling startResolutionForResult(),
+                            // and check the result in onActivityResult().
+                            status.startResolutionForResult(
+                                    MapsActivity.this, 1000);
+                        } catch (IntentSender.SendIntentException e) {
+                            // Ignore the error.
+                        }
+                        break;
+                    case LocationSettingsStatusCodes.SETTINGS_CHANGE_UNAVAILABLE:
+                        // Location settings are not satisfied. However, we have no way to fix the
+                        // settings so we won't show the dialog.
+                        break;
+                }
+            }
+        });
     }
 
     @Override
@@ -243,17 +289,17 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_MAGENTA));
 
         // Adding Marker to the Map
-        mCurrLocationMarker = mMap.addMarker(markerOptions);
+        currLocationMarker = map.addMarker(markerOptions);
     }
 
     @Override
     public void onLocationChanged(Location location) {
         Log.d("onLocationChanged", "entered");
 
-        mLastLocation = location;
+        lastLocation = location;
         lastLocationChanged = true;
-        if (mCurrLocationMarker != null) {
-            mCurrLocationMarker.remove();
+        if (currLocationMarker != null) {
+            currLocationMarker.remove();
         }
         //Place current location marker
         if (prevLatitude == null) {
@@ -271,12 +317,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             if (distanceResult[0] > 100) {
                 prevLatitude = latitude;
                 prevLongitude = longitude;
-                mMap.moveCamera(CameraUpdateFactory.newLatLng(new LatLng(latitude, longitude)));
+                map.moveCamera(CameraUpdateFactory.newLatLng(new LatLng(latitude, longitude)));
                 showRestaurants();
             }
         } else {
-            mMap.moveCamera(CameraUpdateFactory.newLatLng(new LatLng(latitude, longitude)));
-            mMap.animateCamera(CameraUpdateFactory.zoomTo(14));
+            map.moveCamera(CameraUpdateFactory.newLatLng(new LatLng(latitude, longitude)));
+            map.animateCamera(CameraUpdateFactory.zoomTo(14));
             showRestaurants();
         }
         Log.d(TAG, "onLocationChanged" + String.format("latitude:%.3f longitude:%.3f", latitude, longitude));
